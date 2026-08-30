@@ -31,7 +31,9 @@ model Language {
 }
 
 model User {
-  id                          Int                   @id @default(autoincrement())
+  id      Int      @id @default(autoincrement())
+  devices Device[] // Liên kết 1-n với Device
+
   email                       String                @unique
   name                        String                @unique @db.VarChar(500)
   password                    String                @db.VarChar(500)
@@ -59,7 +61,6 @@ model User {
   createdCategoryTranslations CategoryTranslation[] @relation("CategoryTranslationCreatedBy")
   deletedCategoryTranslations CategoryTranslation[] @relation("CategoryTranslationDeletedBy")
   updatedCategoryTranslations CategoryTranslation[] @relation("CategoryTranslationUpdatedBy")
-  devices                     Device[]
   createdLanguages            Language[]            @relation("LanguageCreatedBy")
   deletedLanguages            Language[]            @relation("LanguageDeletedBy")
   updatedLanguages            Language[]            @relation("LanguageUpdatedBy")
@@ -139,12 +140,12 @@ model VerificationCode {
 model Device {
   id            Int            @id @default(autoincrement())
   userId        Int
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   userAgent     String
   ip            String
   lastActive    DateTime       @updatedAt
   createdAt     DateTime       @default(now())
   isActive      Boolean        @default(true)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
   refreshTokens RefreshToken[]
 }
 
@@ -154,10 +155,13 @@ model RefreshToken {
   deviceId  Int
   expiresAt DateTime
   createdAt DateTime @default(now())
-  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  device Device @relation(fields: [deviceId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([expiresAt])
+  @@index([userId])
+  @@index([deviceId])
 }
 
 model Permission {

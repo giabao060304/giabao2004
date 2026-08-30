@@ -34,3 +34,16 @@ export const VerifyOtpSchema = z.object({
 });
 
 export type VerifyOtpDto = z.infer<typeof VerifyOtpSchema>;
+
+
+export const LoginSchema = z.object({
+    email: z
+        .string()
+        .email('Email không hợp lệ'),
+
+    password: z
+        .string()
+        .min(1, 'Password không được để trống'),
+});
+
+export type LoginDto = z.infer<typeof LoginSchema>;

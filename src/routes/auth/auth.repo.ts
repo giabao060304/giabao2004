@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, VerificationCodeType, UserStatus } from '@prisma/client';
+
 import { PrismaService } from '../../shared/services/prisma.service';
 
 @Injectable()
@@ -6,19 +8,28 @@ export class AuthRepository {
     constructor(
         private readonly prisma: PrismaService,
     ) { }
-
-    async findUserByEmail(email: string) {
-        return this.prisma.user.findUnique({
-            where: {
-                email,
-            },
-            include: {
-                role: true,
-            },
+    async createDevice(data: {
+        userId: number;
+        userAgent: string;
+        ip: string;
+    }) {
+        return this.prisma.device.create({
+            data,
         });
     }
 
-    async createUser(data: any) {
+    async createRefreshToken(data: {
+        token: string;
+        userId: number;
+        deviceId: number;
+        expiresAt: Date;
+    }) {
+        return this.prisma.refreshToken.create({
+            data,
+        });
+    }
+
+    async createUser(data: Prisma.UserUncheckedCreateInput) {
         return this.prisma.user.create({
             data,
             include: {
@@ -26,9 +37,10 @@ export class AuthRepository {
             },
         });
     }
+
     async updateUserStatus(
         userId: number,
-        status: 'ACTIVE' | 'INACTIVE',
+        status: UserStatus,
     ) {
         return this.prisma.user.update({
             where: {
@@ -42,7 +54,7 @@ export class AuthRepository {
 
     async deleteVerificationCode(
         email: string,
-        type: any,
+        type: VerificationCodeType,
     ) {
         return this.prisma.verificationCode.delete({
             where: {
@@ -54,7 +66,7 @@ export class AuthRepository {
         });
     }
 
-    async createVerificationCode(data: any) {
+    async createVerificationCode(data: Prisma.VerificationCodeCreateInput) {
         return this.prisma.verificationCode.create({
             data,
         });
@@ -62,7 +74,7 @@ export class AuthRepository {
 
     async findVerificationCode(
         email: string,
-        type: any,
+        type: VerificationCodeType,
     ) {
         return this.prisma.verificationCode.findUnique({
             where: {
@@ -71,9 +83,7 @@ export class AuthRepository {
                     type,
                 },
             },
-
         });
-
 
     }
 }

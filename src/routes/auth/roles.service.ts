@@ -7,10 +7,12 @@ import { PrismaService } from '../../shared/services/prisma.service';
 import {
     RoleName,
     RoleNameType,
-} from './role.constant';
+} from '../../shared/constants/role.constant';
 
 @Injectable()
 export class RolesService {
+    private userRoleId: number | null = null;
+
     constructor(
         private readonly prisma: PrismaService,
     ) { }
@@ -31,7 +33,12 @@ export class RolesService {
         return role;
     }
 
-    async getUserRole() {
-        return this.getRoleByName(RoleName.USER);
+    async getUserRoleId(): Promise<number> {
+        if (this.userRoleId === null) {
+            const role = await this.getRoleByName(RoleName.USER);
+            this.userRoleId = role.id;
+        }
+
+        return this.userRoleId;
     }
 }

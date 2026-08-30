@@ -1,4 +1,4 @@
-export type JwtPayload = {
-    sub: number;
-    email: string;
-};
+export interface JwtPayload {
+    userId: number;
+    roleId: number;
+}

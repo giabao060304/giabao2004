@@ -1,3 +1,6 @@
+import { instanceToPlain } from 'class-transformer';
+import { UserModel } from '../models/share-user.model';
+
 export function Serialize() {
     return function (
         target: any,
@@ -13,7 +16,17 @@ export function Serialize() {
                 return result;
             }
 
-            return JSON.parse(JSON.stringify(result));
+            // Nếu result có field `data`, chỉ serialize phần data
+            if (result.data) {
+                return {
+                    ...result,
+                    data: instanceToPlain(
+                        new UserModel(result.data),
+                    ),
+                };
+            }
+
+            return instanceToPlain(new UserModel(result));
         };
 
         return descriptor;

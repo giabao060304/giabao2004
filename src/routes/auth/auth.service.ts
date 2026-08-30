@@ -9,10 +9,11 @@ import {
     RegisterDto,
     VerifyOtpDto,
 } from './auth.dto';
-
+import { EmailService } from '../../shared/services/email.service';
 import { AuthRepository } from './auth.repo';
 import { RolesService } from './roles.service';
-
+import { LoginDto } from './auth.dto';
+import { TokenService } from '../../shared/services/token.service';
 import { SharedUserRepository } from '../../shared/repositories/shared-user.repo';
 
 import { HashingService } from '../../shared/services/hashing.service';
@@ -23,12 +24,13 @@ import { AUTH_CONSTANTS } from '../../shared/constants/auth.constant';
 export class AuthService {
     constructor(
         private readonly sharedUserRepository: SharedUserRepository,
-
+        private readonly tokenService: TokenService,
         private readonly authRepository: AuthRepository,
 
         private readonly rolesService: RolesService,
 
         private readonly hashingService: HashingService,
+        private readonly emailService: EmailService,
     ) { }
 
     // =========================
@@ -50,9 +52,7 @@ export class AuthService {
         }
 
         // 2. Lấy role USER
-        const role =
-            await this.rolesService.getUserRole();
-
+        const userRoleId = await this.rolesService.getUserRoleId();
         // 3. Hash password
         const password =
             await this.hashingService.hash(
@@ -60,17 +60,16 @@ export class AuthService {
             );
 
         // 4. Tạo User
-        const user =
-            await this.authRepository.createUser({
-                email: body.email,
-                password,
-                name: body.name,
-                phoneNumber: body.phoneNumber,
 
-                roleId: role.id,
+        const user = await this.authRepository.createUser({
+            email: body.email,
+            password,
+            name: body.name,
+            phoneNumber: body.phoneNumber,
+            roleId: userRoleId,
 
-                status: 'INACTIVE',
-            });
+            status: 'INACTIVE',
+        });
 
         // 5. Sinh OTP
         const otp = this.generateOtp();
@@ -91,9 +90,7 @@ export class AuthService {
 
         // TODO:
         // Sau này gửi OTP qua email
-        console.log(
-            `[REGISTER OTP] ${body.email}: ${otp}`,
-        );
+        await this.emailService.sendOtpEmail(body.email, otp);
 
         // 8. Không trả password
         const {
@@ -186,7 +183,76 @@ export class AuthService {
     // =========================
     // GENERATE OTP
     // =========================
+    // =========================
+    // LOGIN
+    // =========================
 
+    async login(
+        body: LoginDto,
+        userAgent: string,
+        ip: string,
+    ) {
+        // 1. Tìm user
+        const user = await this.sharedUserRepository.findByEmail(body.email);
+
+        if (!user) {
+            throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+        }
+
+        // 2. Kiểm tra tài khoản đã kích hoạt chưa
+        if (user.status !== 'ACTIVE') {
+            throw new UnauthorizedException('Tài khoản chưa được kích hoạt');
+        }
+
+        // 3. So sánh password
+        const isPasswordValid = await this.hashingService.compare(
+            body.password,
+            user.password,
+        );
+
+        if (!isPasswordValid) {
+            throw new UnauthorizedException('Email hoặc mật khẩu không đúng');
+        }
+
+        // 4. Tạo payload
+        const payload = {
+            userId: user.id,
+            roleId: user.roleId,
+        };
+
+        // 5. Sinh token
+        const accessToken = await this.tokenService.generateAccessToken(payload);
+        const refreshToken = await this.tokenService.generateRefreshToken(payload);
+
+        // 6. Tạo Device
+        const device = await this.authRepository.createDevice({
+            userId: user.id,
+            userAgent,
+            ip,
+        });
+
+        // 7. Lưu Refresh Token
+        const expiresAt = new Date(
+            Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 ngày
+        );
+
+        await this.authRepository.createRefreshToken({
+            token: refreshToken,
+            userId: user.id,
+            deviceId: device.id,
+            expiresAt,
+        });
+
+        // 8. Trả kết quả
+        return {
+            message: 'Đăng nhập thành công',
+            data: {
+                accessToken,
+                refreshToken,
+                user,
+            },
+        };
+    }
     private generateOtp(): string {
         return Math.floor(
             100000 +
